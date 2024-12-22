@@ -1,0 +1,6 @@
+runtime: python38
+entrypoint: gunicorn -w 4 -b :8080 app:app
+
+handlers:
+- url: /.*
+  script: auto
