@@ -37,14 +37,23 @@ def process_file_content(content):
 def detect_new_words(user_input):
     conn = sqlite3.connect("learning_ai.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT word FROM vocabulary")
-    known_words = {row[0] for row in cursor.fetchall()}  # Fetch all known words
 
-    words = user_input.split()  # Split the input into words
+    # Get all existing words in the vocabulary table
+    cursor.execute("SELECT word FROM vocabulary")
+    known_words = {row[0] for row in cursor.fetchall()}
+
+    # Extract new words from the user input
+    words = user_input.split()
     new_words = [word for word in words if word not in known_words]
 
+    # Insert only new words into the database
     for word in new_words:
-        cursor.execute("INSERT INTO vocabulary (word, context) VALUES (?, ?)", (word, user_input))
+        try:
+            cursor.execute(
+                "INSERT INTO vocabulary (word, context) VALUES (?, ?)", (word, user_input)
+            )
+        except sqlite3.IntegrityError:
+            pass  # Ignore duplicate entries
     conn.commit()
     conn.close()
 
@@ -67,35 +76,38 @@ def favicon():
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file part"}), 400
 
-    file = request.files["file"]
+        file = request.files["file"]
 
-    if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(filepath)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            file.save(filepath)
 
-        # Extract and process file content
-        if filename.endswith(".docx"):
-            content = extract_text_from_docx(filepath)
-        elif filename.endswith(".pdf"):
-            content = extract_text_from_pdf(filepath)
-        elif filename.endswith(".txt"):
-            with open(filepath, "r", encoding="utf-8") as f:
-                content = f.read()
-        else:
-            return jsonify({"error": "Unsupported file type"}), 400
+            # Extract and process file content
+            if filename.endswith(".docx"):
+                content = extract_text_from_docx(filepath)
+            elif filename.endswith(".pdf"):
+                content = extract_text_from_pdf(filepath)
+            elif filename.endswith(".txt"):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    content = f.read()
+            else:
+                return jsonify({"error": "Unsupported file type"}), 400
 
-        # Process the content
-        process_result = process_file_content(content)
-        return jsonify({"message": process_result}), 200
+            # Process the content
+            process_result = process_file_content(content)
+            return jsonify({"message": process_result}), 200
 
-    return jsonify({"error": "File not allowed"}), 400
+        return jsonify({"error": "File not allowed"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
