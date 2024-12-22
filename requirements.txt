@@ -1,1 +1,1 @@
-flaskpython-docxPyPDF2gunicorn
+flaskpython-docxPyPDF2gunicornwaitress
