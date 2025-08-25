@@ -26,7 +26,12 @@ def extract_text_from_docx(filepath):
 # Extract text from PDF
 def extract_text_from_pdf(filepath):
     reader = PdfReader(filepath)
-    return "\n".join([page.extract_text() for page in reader.pages])
+    lines = []
+    for page in reader.pages:
+        # ``extract_text`` may return ``None`` for blank pages. ``or ""``
+        # ensures the join operation below always receives strings.
+        lines.append(page.extract_text() or "")
+    return "\n".join(lines)
 
 # Process file content for learning
 def process_file_content(content):
